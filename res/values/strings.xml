@@ -9,4 +9,5 @@
     <string name="lin_accel_y_label">Linear accelerometer (y)</string>
     <string name="lin_accel_z_label">Linear accelerometer (z)</string>
     <string name="altitude_label">Altitude</string>
+    <string name="accuracy_label">Accuracy</string>
 </resources>
