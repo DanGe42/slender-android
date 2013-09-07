@@ -3,8 +3,13 @@ package io.dge.slender;
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.DialogFragment;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
@@ -17,11 +22,11 @@ import com.google.android.gms.location.LocationClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 
-public class MainActivity extends Activity
-        implements
-            GooglePlayServicesClient.ConnectionCallbacks,
-            GooglePlayServicesClient.OnConnectionFailedListener,
-            LocationListener {
+public class MainActivity extends Activity implements
+        GooglePlayServicesClient.ConnectionCallbacks,
+        GooglePlayServicesClient.OnConnectionFailedListener,
+        LocationListener,
+        SensorEventListener {
 
     // Global constants
     /*
@@ -47,7 +52,10 @@ public class MainActivity extends Activity
     private LocationRequest locationRequest;
     private Location location;
 
-    private TextView latText, lngText, speedText;
+    private SensorManager sensorManager;
+    private Sensor linAccelerometer;
+
+    private TextView latText, lngText, altitudeText, speedText, xText, yText, zText;
 
     /**
      * Called when the activity is first created.
@@ -59,7 +67,11 @@ public class MainActivity extends Activity
 
         latText = (TextView) findViewById(R.id.latitude);
         lngText = (TextView) findViewById(R.id.longitude);
+        altitudeText = (TextView) findViewById(R.id.altitude);
         speedText = (TextView) findViewById(R.id.loc_speed);
+        xText = (TextView) findViewById(R.id.lin_accel_x);
+        yText = (TextView) findViewById(R.id.lin_accel_y);
+        zText = (TextView) findViewById(R.id.lin_accel_z);
 
         locationClient = new LocationClient(this, this, this);
         // Create the LocationRequest object
@@ -71,6 +83,12 @@ public class MainActivity extends Activity
         locationRequest.setInterval(UPDATE_INTERVAL);
         // Set the fastest update interval to 1 second
         locationRequest.setFastestInterval(FASTEST_INTERVAL);
+
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        linAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        if (linAccelerometer == null) {
+            ltoast("Warning: no linear accelerometer");
+        }
     }
 
     @Override
@@ -85,10 +103,28 @@ public class MainActivity extends Activity
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        sensorManager.unregisterListener(this);
+    }
+
+    @Override
     protected void onStart() {
         super.onStart();
         // Will also activate location updates
         locationClient.connect();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!servicesConnected()) {
+            Log.e("Location Updates", "Services not connected");
+            ltoast("Services not connected");
+        } else {
+            stoast("Services connected!");
+        }
+        sensorManager.registerListener(this, linAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     /*
@@ -173,6 +209,24 @@ public class MainActivity extends Activity
         latText.setText(String.valueOf(location.getLatitude()));
         lngText.setText(String.valueOf(location.getLongitude()));
         speedText.setText(String.valueOf(location.getSpeed()));
+        altitudeText.setText(String.valueOf(location.getAltitude()));
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        float[] values = event.values;
+        xText.setText(String.valueOf(values[0]));
+        yText.setText(String.valueOf(values[1]));
+        zText.setText(String.valueOf(values[2]));
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        if (accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
+            ltoast("Warning: unreliable accelerometer");
+        }
+
+        linAccelerometer = sensor;
     }
 
     // Define a DialogFragment that displays the error dialog
@@ -228,17 +282,6 @@ public class MainActivity extends Activity
         }
 
         return false;
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (!servicesConnected()) {
-            Log.e("Location Updates", "Services not connected");
-            ltoast("Services not connected");
-        } else {
-            stoast("Services connected!");
-        }
     }
 
     private void ltoast(String text) {

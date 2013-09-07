@@ -4,4 +4,9 @@
     <string name="latitude_label">Latitude</string>
     <string name="longitude_label">Longitude</string>
     <string name="loc_speed_label">Speed</string>
+
+    <string name="lin_accel_x_label">Linear accelerometer (x)</string>
+    <string name="lin_accel_y_label">Linear accelerometer (y)</string>
+    <string name="lin_accel_z_label">Linear accelerometer (z)</string>
+    <string name="altitude_label">Altitude</string>
 </resources>
