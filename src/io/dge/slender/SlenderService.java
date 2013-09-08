@@ -21,13 +21,9 @@ import com.google.android.gms.location.LocationClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 
-/**
- * Created with IntelliJ IDEA.
- * User: danielge
- * Date: 9/7/13
- * Time: 4:10 PM
- * To change this template use File | Settings | File Templates.
- */
+import static io.dge.slender.Utils.GyroscopeFilter;
+import static io.dge.slender.Utils.Triplet;
+
 public class SlenderService extends Service implements
         GooglePlayServicesClient.ConnectionCallbacks,
         GooglePlayServicesClient.OnConnectionFailedListener,
@@ -139,6 +135,7 @@ public class SlenderService extends Service implements
         } else {
             gyroListener = new SensorEventListener() {
                 private long previousTime = -1;
+                private GyroscopeFilter gyroscopeFilter = new GyroscopeFilter();
 
                 @Override
                 public void onSensorChanged(SensorEvent event) {
@@ -148,8 +145,11 @@ public class SlenderService extends Service implements
                         long currentTime = System.currentTimeMillis();
                         long delay = currentTime - previousTime;
 
-                        // TODO: logic
+                        float[] values = event.values;
+                        Triplet<Double, Double, Double> xyz =
+                                gyroscopeFilter.update(values[0], values[1], values[2], delay);
 
+                        Log.d(TAG, xyz.toString());
                         previousTime = currentTime;
                     }
                 }
