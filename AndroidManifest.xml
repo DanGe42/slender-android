@@ -5,6 +5,7 @@
           android:versionName="1.0">
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-feature android:name="android.hardware.sensor.linear_accelerometer"
                   android:required="true" />
     <uses-sdk android:minSdkVersion="15"/>
@@ -19,5 +20,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <service android:name=".SlenderService"
+                android:exported="false" />
     </application>
 </manifest>

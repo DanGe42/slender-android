@@ -9,4 +9,8 @@
     <string name="lin_accel_y_label">Linear accelerometer (y)</string>
     <string name="lin_accel_z_label">Linear accelerometer (z)</string>
     <string name="altitude_label">Altitude</string>
+    <string name="start_button_text">Start Game</string>
+    <string name="end_button_text">End Game</string>
+
+    <string name="ticker_text">Tap this to end game</string>
 </resources>
