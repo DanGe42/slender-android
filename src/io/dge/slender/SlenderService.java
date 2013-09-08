@@ -31,8 +31,7 @@ import com.google.android.gms.location.LocationRequest;
 public class SlenderService extends Service implements
         GooglePlayServicesClient.ConnectionCallbacks,
         GooglePlayServicesClient.OnConnectionFailedListener,
-        LocationListener,
-        SensorEventListener
+        LocationListener
 {
     private static final String TAG = "SlenderService";
 
@@ -56,8 +55,8 @@ public class SlenderService extends Service implements
     private static final long FASTEST_INTERVAL =
             MILLISECONDS_PER_SECOND * FASTEST_INTERVAL_IN_SECONDS;
 
+    private static final int SLENDER_SERVICE_ERROR_NOTIFICATION_ID = 0x100;
     private static final int SLENDER_STICKY_NOTIFICATION_ID = 0x101;
-    private static final int SLENDER_SERVICE_NOTIFICATION_ID = 0x100;
 
 
     private LocationClient locationClient;
@@ -66,6 +65,9 @@ public class SlenderService extends Service implements
 
     private SensorManager sensorManager;
     private Sensor linAccelerometer;
+    private SensorEventListener linAccListener;
+    private Sensor gyroscope;
+    private SensorEventListener gyroListener;
 
     private NotificationManager notificationManager;
     private Vibrator vibrator;
@@ -85,13 +87,84 @@ public class SlenderService extends Service implements
         // Set the fastest update interval to 1 second
         locationRequest.setFastestInterval(FASTEST_INTERVAL);
 
+        notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+
         linAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         if (linAccelerometer == null) {
-            // TODO: do something
+            Notification notification = new Notification.Builder(getApplicationContext())
+                    .setSmallIcon(R.drawable.ic_launcher)
+                    .setContentTitle(getText(R.string.app_name))
+                    .setContentText("No linear accelerometer was detected.")
+                    .setContentIntent(
+                            PendingIntent.getActivity(getApplicationContext(),
+                                    0,
+                                    new Intent(this, MainActivity.class),
+                                    0
+                            ))
+                    .getNotification();
+            notificationManager.notify(SLENDER_SERVICE_ERROR_NOTIFICATION_ID, notification);
+        } else  {
+            // Set up linear acceleration listener
+            linAccListener = new SensorEventListener() {
+                @Override
+                public void onSensorChanged(SensorEvent event) {
+                }
+
+                @Override
+                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                    if (accuracy >= SensorManager.SENSOR_STATUS_UNRELIABLE) {
+                        Log.w(TAG, "Linear acceleration sensor is unreliable");
+                    }
+
+                    linAccelerometer = sensor;
+                }
+            };
         }
 
-        notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        if (gyroscope == null) {
+            Notification notification = new Notification.Builder(getApplicationContext())
+                    .setSmallIcon(R.drawable.ic_launcher)
+                    .setContentTitle(getText(R.string.app_name))
+                    .setContentText("No gyroscope was detected.")
+                    .setContentIntent(
+                            PendingIntent.getActivity(getApplicationContext(),
+                                    0,
+                                    new Intent(this, MainActivity.class),
+                                    0
+                            ))
+                    .getNotification();
+            notificationManager.notify(SLENDER_SERVICE_ERROR_NOTIFICATION_ID, notification);
+        } else {
+            gyroListener = new SensorEventListener() {
+                private long previousTime = -1;
+
+                @Override
+                public void onSensorChanged(SensorEvent event) {
+                    if (previousTime == -1) {
+                        previousTime = System.currentTimeMillis();
+                    } else {
+                        long currentTime = System.currentTimeMillis();
+                        long delay = currentTime - previousTime;
+
+                        // TODO: logic
+
+                        previousTime = currentTime;
+                    }
+                }
+
+                @Override
+                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                    if (accuracy >= SensorManager.SENSOR_STATUS_UNRELIABLE) {
+                        Log.w(TAG, "Gyroscope sensor is unreliable");
+                    }
+
+                    gyroscope = sensor;
+                }
+            };
+        }
+
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
     }
 
@@ -104,8 +177,15 @@ public class SlenderService extends Service implements
         super.onStartCommand(intent, flags, startId);
 
         locationClient.connect();
-        sensorManager.registerListener(this, linAccelerometer, SensorManager
-                .SENSOR_DELAY_NORMAL);
+
+        if (linAccListener != null) {
+            sensorManager.registerListener(linAccListener, linAccelerometer,
+                    SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        if (gyroListener != null) {
+            sensorManager.registerListener(gyroListener, gyroscope,
+                    SensorManager.SENSOR_DELAY_NORMAL);
+        }
 
         // Start this service in the foreground
         Intent notificationIntent = new Intent(this, MainActivity.class);
@@ -129,12 +209,14 @@ public class SlenderService extends Service implements
         super.onDestroy();
         started = false;
 
-        sensorManager.unregisterListener(this);
+        sensorManager.unregisterListener(linAccListener);
+        sensorManager.unregisterListener(gyroListener);
 
         if (locationClient.isConnected()) {
             locationClient.removeLocationUpdates(this);
         }
         locationClient.disconnect();
+        vibrator.cancel();
     }
 
     @Override
@@ -157,7 +239,7 @@ public class SlenderService extends Service implements
                     .setContentIntent(connectionResult.getResolution())
                     .getNotification();
 
-            notificationManager.notify(SLENDER_SERVICE_NOTIFICATION_ID, notification);
+            notificationManager.notify(SLENDER_SERVICE_ERROR_NOTIFICATION_ID, notification);
         } else {
             Notification notification = new Notification.Builder(getApplicationContext())
                     .setSmallIcon(R.drawable.ic_launcher)
@@ -170,7 +252,7 @@ public class SlenderService extends Service implements
                             0
                     ))
                     .getNotification();
-            notificationManager.notify(SLENDER_SERVICE_NOTIFICATION_ID, notification);
+            notificationManager.notify(SLENDER_SERVICE_ERROR_NOTIFICATION_ID, notification);
         }
     }
 
@@ -180,18 +262,5 @@ public class SlenderService extends Service implements
         this.location = location;
 
         vibrator.vibrate(5000);
-    }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        if (accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
-            Log.w(TAG, "Linear acceleration sensor is unreliable");
-        }
-
-        linAccelerometer = sensor;
     }
 }

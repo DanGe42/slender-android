@@ -1,6 +1,8 @@
 package io.dge.slender;
 
-import android.app.*;
+import android.app.Activity;
+import android.app.Dialog;
+import android.app.DialogFragment;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -11,7 +13,6 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 
 import static io.dge.slender.Utils.ltoast;
-import static io.dge.slender.Utils.stoast;
 
 public class MainActivity extends Activity {
 
@@ -34,14 +35,13 @@ public class MainActivity extends Activity {
         }
     }
 
+
     @Override
     protected void onResume() {
         super.onResume();
         if (!servicesConnected()) {
             Log.e("Location Updates", "Services not connected");
             ltoast(this, "Services not connected");
-        } else {
-            stoast(this, "Services connected!");
         }
     }
 
