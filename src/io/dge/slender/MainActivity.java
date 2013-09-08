@@ -1,25 +1,50 @@
 package io.dge.slender;
 
-import android.app.Activity;
-import android.app.Dialog;
-import android.app.DialogFragment;
+import android.app.*;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 
+import static io.dge.slender.SlenderService.started;
 import static io.dge.slender.Utils.ltoast;
 
 public class MainActivity extends Activity {
+    private static final String TAG = "MainActivity";
+
+    private SlenderService service;
+    private volatile boolean bound = false;
+    private ServiceConnection connection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            SlenderService.LocalBinder binder = (SlenderService.LocalBinder) service;
+            MainActivity.this.service = binder.getService();
+            bound = true;
+            (new Thread(new UIUpdater())).start();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            bound = false;
+        }
+    };
 
     private final static int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
 
     private Button toggleServiceButton;
+    private Fragment gameFragment;
     private String id;
+
+    private volatile boolean updateUI;
 
     /**
      * Called when the activity is first created.
@@ -30,7 +55,7 @@ public class MainActivity extends Activity {
         setContentView(R.layout.main);
 
         id = Installation.id(this);
-        ltoast(this, id);
+        ltoast(this, id + " length " + id.length());
         toggleServiceButton = (Button) findViewById(R.id.start_button);
 
         if (!servicesConnected()) {
@@ -48,16 +73,32 @@ public class MainActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        updateUI = false;
+    }
+
     // Called by tapping big button
     public void toggleService(View _) {
-        toggleServiceButtonView(!SlenderService.started);
+        toggleServiceButtonView(!started);
 
-        if (SlenderService.started) {
-            stopService(new Intent(this, SlenderService.class));
+        FragmentTransaction transaction = getFragmentManager().beginTransaction();
+
+        if (started) {
+            unbindService(connection);
+            bound = false;
+            transaction.remove(gameFragment);
+            transaction.commit();
         } else {
             Intent intent = new Intent(this, SlenderService.class);
             intent.putExtra("id", id);
-            startService(intent);
+            bindService(intent, connection, Context.BIND_AUTO_CREATE);
+
+            gameFragment = new GameFragment();
+            transaction.replace(R.id.fragment_container, gameFragment);
+            transaction.commit();
+            updateUI = true;
         }
     }
 
@@ -127,5 +168,30 @@ public class MainActivity extends Activity {
         return false;
     }
 
+    private class UIUpdater implements Runnable {
 
+        @Override
+        public void run() {
+
+            while (bound && updateUI) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Compass compass = (Compass) findViewById(R.id.compass);
+                        TextView numPeople = (TextView) findViewById(R.id.num_people);
+                        compass.update(service.getDirection());
+                        numPeople.setText(String.valueOf(service.getNumPeople()));
+                    }
+                });
+
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+
+            Log.d(TAG, "UI Thread ended");
+        }
+    }
 }

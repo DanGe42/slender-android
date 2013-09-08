@@ -16,22 +16,35 @@ public class SlenderClient {
     private SessionInfo session;
     private String uuid;
 
+    public String getUuid() {
+        return uuid;
+    }
+
     public SlenderClient(String uuid) throws IOException {
         this.uuid = uuid;
+        connect();
+    }
+
+    private void connect() throws IOException {
         socket = new Socket("slender.danielge.org", 50007);
 
         if (socket.isConnected()) {
-            out = new PrintWriter(socket.getOutputStream(), true);
+            out = new PrintWriter(socket.getOutputStream());
             in = socket.getInputStream();
         } else {
             throw new IOException("Cannot connect to server");
         }
+
     }
 
-    public SessionInfo fetchSessionInfo() throws IOException {
+    public SessionInfo fetchSessionInfo() {
         int numBytes = 12;
         byte[] response = new byte[numBytes];
-        int numRead = in.read(response);
+        try {
+            int numRead = in.read(response);
+        } catch (IOException e) {
+            return null;
+        }
 
         session = new SessionInfo(response);
         return session;
@@ -39,6 +52,11 @@ public class SlenderClient {
 
     public SessionInfo getSessionInfo() {
         return session;
+    }
+
+    public void reset() throws IOException {
+        close();
+        connect();
     }
 
     public boolean sendUserInfo(double latitude, double longitude, boolean isGameToPlay) {
@@ -76,7 +94,7 @@ public class SlenderClient {
         public int numPartyMembersAround;
         public int numTotalPlayers;
         public int numActivePlayers;
-        public int directionArrow;
+        public Direction directionArrow;
         public boolean isClientActive;
         public boolean isSlenderVictory;
         public boolean isSessionReqSatisfied;
@@ -90,13 +108,26 @@ public class SlenderClient {
             this.numPartyMembersAround = (int) serverInfo[4];
             this.numTotalPlayers = (int) serverInfo[5];
             this.numActivePlayers = (int) serverInfo[6];
-            this.directionArrow = (int) serverInfo[7];
+            this.directionArrow = toDirection((int) serverInfo[7]);
             this.isClientActive = toBool(serverInfo[8]);
             this.isSlenderVictory = toBool(serverInfo[9]);
             this.isSessionReqSatisfied = toBool(serverInfo[10]);
             this.newSessionCountdown = (int) serverInfo[11];
         }
 
+        private Direction toDirection (int num) {
+            switch (num) {
+                case 0: return Direction.NORTH;
+                case 1: return Direction.NORTHEAST;
+                case 2: return Direction.EAST;
+                case 3: return Direction.SOUTHEAST;
+                case 4: return Direction.SOUTH;
+                case 5: return Direction.SOUTHWEST;
+                case 6: return Direction.WEST;
+                case 7: return Direction.NORTHWEST;
+                default: return Direction.INVALID;
+            }
+        }
 
     }
     private static boolean toBool(byte b) {

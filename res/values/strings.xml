@@ -13,4 +13,6 @@
     <string name="end_button_text">End Game</string>
 
     <string name="ticker_text">Tap this to end game</string>
+    <string name="num_people">Number of party members around</string>
+    <string name="nearest_person">Approximate direction to nearest person</string>
 </resources>
