@@ -11,6 +11,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Vibrator;
@@ -20,6 +21,8 @@ import com.google.android.gms.common.GooglePlayServicesClient;
 import com.google.android.gms.location.LocationClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
+
+import java.io.IOException;
 
 import static io.dge.slender.Utils.GyroscopeFilter;
 import static io.dge.slender.Utils.Triplet;
@@ -50,14 +53,14 @@ public class SlenderService extends Service implements
     // A fast frequency ceiling in milliseconds
     private static final long FASTEST_INTERVAL =
             MILLISECONDS_PER_SECOND * FASTEST_INTERVAL_IN_SECONDS;
+    private static final long SERVER_UPDATE_INTERVAL = 4000;
 
     private static final int SLENDER_SERVICE_ERROR_NOTIFICATION_ID = 0x100;
     private static final int SLENDER_STICKY_NOTIFICATION_ID = 0x101;
 
-
     private LocationClient locationClient;
     private LocationRequest locationRequest;
-    private Location location;
+    private volatile Location location;
 
     private SensorManager sensorManager;
     private Sensor linAccelerometer;
@@ -67,6 +70,9 @@ public class SlenderService extends Service implements
 
     private NotificationManager notificationManager;
     private Vibrator vibrator;
+
+    private volatile boolean networkActive;
+    private volatile SlenderClient client;
 
     @Override
     public void onCreate() {
@@ -149,7 +155,6 @@ public class SlenderService extends Service implements
                         Triplet<Double, Double, Double> xyz =
                                 gyroscopeFilter.update(values[0], values[1], values[2], delay);
 
-                        Log.d(TAG, xyz.toString());
                         previousTime = currentTime;
                     }
                 }
@@ -175,6 +180,9 @@ public class SlenderService extends Service implements
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         super.onStartCommand(intent, flags, startId);
+
+        String id = intent.getStringExtra("id");
+        (new SlenderConnect()).execute(id);
 
         locationClient.connect();
 
@@ -208,6 +216,7 @@ public class SlenderService extends Service implements
     public void onDestroy() {
         super.onDestroy();
         started = false;
+        networkActive = false;
 
         sensorManager.unregisterListener(linAccListener);
         sensorManager.unregisterListener(gyroListener);
@@ -260,7 +269,70 @@ public class SlenderService extends Service implements
     public void onLocationChanged(Location location) {
         Log.d(TAG, location.toString());
         this.location = location;
+    }
 
-        vibrator.vibrate(5000);
+    private class NetworkThread implements Runnable {
+        @Override
+        public void run() {
+            networkActive = true;
+
+            while (networkActive) {
+                if (location != null) {
+                    boolean success = client.sendUserInfo(
+                            location.getLatitude(), location.getLongitude(), true);
+
+                    if (success) {
+                        Log.d(TAG, "Successfully sent data");
+                    } else {
+                        Log.e(TAG, "A problem occurred in sending data");
+                        break;
+                    }
+                }
+
+                try {
+                    Thread.sleep(SERVER_UPDATE_INTERVAL);
+                } catch (InterruptedException e) {
+                    networkActive = false;
+                }
+            }
+        }
+    }
+
+    private class SlenderConnect extends AsyncTask<String, Void, SlenderClient> {
+
+        @Override
+        protected SlenderClient doInBackground(String... params) {
+            try {
+                return new SlenderClient(params[0]);
+            } catch (IOException e) {
+                return null;
+            }
+        }
+
+        @Override
+        protected void onPostExecute(SlenderClient client) {
+            if (client == null) {
+                Notification notification = new Notification.Builder(getApplicationContext())
+                        .setSmallIcon(R.drawable.ic_launcher)
+                        .setContentTitle(getText(R.string.app_name))
+                        .setContentText("Cannot connect to server. Try restarting the " +
+                                "game.")
+                        .setContentIntent(
+                                PendingIntent.getActivity(getApplicationContext(),
+                                        0,
+                                        new Intent(SlenderService.this,
+                                                MainActivity.class),
+                                        0
+                                ))
+                        .getNotification();
+                notificationManager.notify(SLENDER_SERVICE_ERROR_NOTIFICATION_ID, notification);
+                return;
+            }
+
+            SlenderService.this.client = client;
+            Thread networkThread = new Thread(new NetworkThread());
+            networkActive = true;
+            networkThread.start();
+        }
     }
 }

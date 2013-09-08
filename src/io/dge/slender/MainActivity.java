@@ -19,6 +19,7 @@ public class MainActivity extends Activity {
     private final static int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
 
     private Button toggleServiceButton;
+    private String id;
 
     /**
      * Called when the activity is first created.
@@ -28,6 +29,8 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
 
+        id = Installation.id(this);
+        ltoast(this, id);
         toggleServiceButton = (Button) findViewById(R.id.start_button);
 
         if (!servicesConnected()) {
@@ -52,7 +55,9 @@ public class MainActivity extends Activity {
         if (SlenderService.started) {
             stopService(new Intent(this, SlenderService.class));
         } else {
-            startService(new Intent(this, SlenderService.class));
+            Intent intent = new Intent(this, SlenderService.class);
+            intent.putExtra("id", id);
+            startService(intent);
         }
     }
 

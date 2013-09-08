@@ -75,20 +75,20 @@ public class Utils {
                     {0, 0, 0, 0, 0, 1}
             };
             double[][] process_error_arr = {
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
+                    {0.1, 0, 0, 0, 0, 0},
+                    {0, 0.1, 0, 0, 0, 0},
+                    {0, 0, 0.1, 0, 0, 0},
+                    {0, 0, 0, 0.1, 0, 0},
+                    {0, 0, 0, 0, 0.1, 0},
+                    {0, 0, 0, 0, 0, 0.1}
             };
             double measurement_error_arr[][] = {
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-                    { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
+                    {0.01, 0, 0, 0, 0, 0},
+                    {0, 0.01, 0, 0, 0, 0},
+                    {0, 0, 0.01, 0, 0, 0},
+                    {0, 0, 0, 0.01, 0, 0},
+                    {0, 0, 0, 0, 0.01, 0},
+                    {0, 0, 0, 0, 0, 0.01}
             };
 
             Matrix state_transition = new Matrix(state_transition_arr);
@@ -103,8 +103,8 @@ public class Utils {
 
             double[][] xyz = {
                     {state_estimate.get(0, 0)},
-                    {state_estimate.get(0, 1)},
-                    {state_estimate.get(0, 2)},
+                    {state_estimate.get(1, 0)},
+                    {state_estimate.get(2, 0)},
                     {x},
                     {y},
                     {z}
@@ -112,7 +112,7 @@ public class Utils {
             new_measurement = new Matrix(xyz);
 
             state_estimate = state_transition.times(state_estimate);
-            error_estimate = state_transition.times(state_estimate.times(state_transition.transpose())).plus(process_error);
+            error_estimate = state_transition.times(error_estimate.times(state_transition.transpose())).plus(process_error);
             innovation = new_measurement.minus(state_estimate);
             innovation_covar = error_estimate.plus(measurement_error);
             kalman_gain = error_estimate.times(innovation_covar.inverse());
@@ -121,8 +121,8 @@ public class Utils {
 
             return new Triplet<Double, Double, Double>(
                     state_estimate.get(0, 0),
-                    state_estimate.get(0, 1),
-                    state_estimate.get(0, 2)
+                    state_estimate.get(1, 0),
+                    state_estimate.get(2, 0)
             );
         }
     }
